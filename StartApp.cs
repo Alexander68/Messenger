@@ -1,23 +1,16 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Threading;
+using System.Windows.Forms;
 
 namespace Messenger
 {
     class StartApp
     {
+        [STAThread]
         public static void Main(String[] args)
         {
-            SocketClient client = new SocketClient("localhost", 9999);
-            SocketServer server = new SocketServer("localhost", 9999);
-
-            Thread clientThr = new Thread(new ThreadStart(client.init));
-            Thread serverThr = new Thread(new ThreadStart(server.init));
-            clientThr.Start();
-            serverThr.Start();
+            Messenger.ui.MainWindow window = new Messenger.ui.MainWindow();
+            Application.Run(window);
         }
     }
 }
