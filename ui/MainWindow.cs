@@ -1,34 +1,37 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Collections.Generic; 
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Threading;
+using MessageException;
+using Messenger.utils;
 
 namespace Messenger.ui
 {
-    public class MainWindow: Form
+    public class MainWindow : Form
     {
         private SocketClient client;
         private SocketServer server;
         private Button send;
-        private TextBox textBox1;
+        private Button connectBtn;
+        private TextBox textInput;
         private TableLayoutPanel mesagePanel;
-        private Button button1;
-        private int tab = 10;
 
+        private int tab;
 
-        public MainWindow() 
+        public MainWindow()
         {
 
             InitializeComponent();
             try
             {
-                server = new SocketServer("localhost", 9999);    
-                Thread serverThr = new Thread(server.init); 
-                serverThr.Start();
+                Properties.load();
+                string serverPort = Properties.getServerPort();
+                server = new SocketServer("localhost", int.Parse(serverPort));
+                Thread serverThread = new Thread(server.Init);
+                serverThread.Start();
                 server.setWindow(this);
+                tab = 10;
             }
             catch (Exception ex)
             {
@@ -54,16 +57,16 @@ namespace Messenger.ui
             }
             else
             {
-                mesagePanel.Controls.Add(message); 
-            } 
+                mesagePanel.Controls.Add(message);
+            }
         }
 
         private void InitializeComponent()
         {
             this.send = new System.Windows.Forms.Button();
-            this.textBox1 = new System.Windows.Forms.TextBox();
+            this.textInput = new System.Windows.Forms.TextBox();
             this.mesagePanel = new System.Windows.Forms.TableLayoutPanel();
-            this.button1 = new System.Windows.Forms.Button();
+            this.connectBtn = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // send
@@ -75,14 +78,15 @@ namespace Messenger.ui
             this.send.Text = "Отправить";
             this.send.UseVisualStyleBackColor = true;
             this.send.Click += new System.EventHandler(this.sendMessage);
+            this.send.Enabled = false;
             // 
-            // textBox1
+            // textInput
             // 
-            this.textBox1.Location = new System.Drawing.Point(12, 305);
-            this.textBox1.Multiline = true;
-            this.textBox1.Name = "textBox1";
-            this.textBox1.Size = new System.Drawing.Size(574, 105);
-            this.textBox1.TabIndex = 1;
+            this.textInput.Location = new System.Drawing.Point(12, 305);
+            this.textInput.Multiline = true;
+            this.textInput.Name = "textInput";
+            this.textInput.Size = new System.Drawing.Size(574, 105);
+            this.textInput.TabIndex = 1;
             // 
             // mesagePanel
             // 
@@ -97,20 +101,20 @@ namespace Messenger.ui
             // 
             // button1
             // 
-            this.button1.Location = new System.Drawing.Point(13, 419);
-            this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(173, 23);
-            this.button1.TabIndex = 3;
-            this.button1.Text = "button1";
-            this.button1.UseVisualStyleBackColor = true;
-            this.button1.Click += new System.EventHandler(this.button1_Click);
+            this.connectBtn.Location = new System.Drawing.Point(13, 419);
+            this.connectBtn.Name = "button1";
+            this.connectBtn.Size = new System.Drawing.Size(173, 23);
+            this.connectBtn.TabIndex = 3;
+            this.connectBtn.Text = "button1";
+            this.connectBtn.UseVisualStyleBackColor = true;
+            this.connectBtn.Click += new System.EventHandler(this.connect);
             // 
             // MainWindow
             // 
             this.ClientSize = new System.Drawing.Size(598, 454);
-            this.Controls.Add(this.button1);
+            this.Controls.Add(this.connectBtn);
             this.Controls.Add(this.mesagePanel);
-            this.Controls.Add(this.textBox1);
+            this.Controls.Add(this.textInput);
             this.Controls.Add(this.send);
             this.Name = "MainWindow";
             this.Text = "Defender Messenger";
@@ -122,44 +126,80 @@ namespace Messenger.ui
 
         private void MainWindow_Load(object sender, EventArgs e)
         {
-
         }
+
+
 
         private void sendMessage(object sender, EventArgs e)
         {
-            if (!string.IsNullOrEmpty(textBox1.Text))
+            try
             {
-                if (!client.SendMessageFromSocket(textBox1.Text))
+                string sessionKey = Properties.getSessionKey();
+                if (!string.IsNullOrEmpty(sessionKey) && client == null)
                 {
-                    write("Сообщение: \"" + textBox1.Text + "\" не отправлено.");
+                    string ip = Properties.getClientIp();
+                    string port = Properties.getClientPort();
+                    client = new SocketClient(ip.Trim(), int.Parse(port));
                 }
-                else
+
+                if (!string.IsNullOrEmpty(textInput.Text))
                 {
-                    write(textBox1.Text);
+                    if (!client.SendMessageFromSocket(textInput.Text, true))
+                    {
+                        write("Сообщение: \"" + textInput.Text + "\" не отправлено.");
+                    }
+                    else
+                    {
+                        write(textInput.Text);
+                    }
+
+                    textInput.Text = "";
                 }
-               
-                textBox1.Text = "";
+            }
+            catch (Exception ex) 
+            {
+                write(ex.Message);
             }
         }
 
-         
+
 
         private void panel1_Paint(object sender, PaintEventArgs e)
         {
 
         }
 
-        private void button1_Click(object sender, EventArgs e)
+        private void connect(object sender, EventArgs e)
         {
             try
             {
-                client = new SocketClient("localhost",4578 );
+                string ip = Properties.getClientIp();
+                string port = Properties.getClientPort();
+                client = new SocketClient(ip.Trim(), int.Parse(port));
+                string status = client.connect();
+                if (SocketClient.SUCCESS.Equals(status))
+                {
+                    setEnabledSend();
+                }
+                write(status);
+
             }
             catch (Exception ex)
             {
                 write(ex.Message);
             }
         }
-         
+
+        public void setEnabledSend()
+        {
+            connectBtn.Enabled = false;
+            send.Enabled = true;
+        }
+
+       
+
+
+
+
     }
 }

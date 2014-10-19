@@ -2,14 +2,30 @@
 using System.IO;
 using System.Text;
 using System.Security.Cryptography;
+using MessageException;
 
 namespace Messenger.utils
 {
     public sealed class CriptoUtils
     {
-        static readonly string salt = "Kosher";
-        static readonly string hashAlgorithm = "SHA1";
-        static readonly string initialVector = "OFRna73m*aze01xY";
+        private const string salt = "Kosher";
+        private const string hashAlgorithm = "SHA1";
+        private const string initialVector = "OFRna73m*aze01xY";
+        private const int countChars = 32;
+
+        public const int PASSWORD_ITER = 2;
+        public const int KEY_SIZE = 256;
+
+
+        public static char powMod(int bas, int power, int mod)
+        {
+            int sum = 1;
+            for (int i = power; i > 0; i--)
+            {
+                sum = (sum * bas) % mod;
+            }
+            return (char)sum;
+        }
 
         public static int ReadPublicKey(ref char[] buf)
         {
@@ -42,14 +58,18 @@ namespace Messenger.utils
 
         }
 
-        public static void Generic(ref char[] buf)
+        public static char[] Generic(int len)
         {
+            char[] buf = new char[len];
             Random rand = new Random();
-            for (int i = 0; i < 32; i++)
-                buf[i] = (char)rand.Next(32, 255);
+            for (int i = 0; i < len; i++)
+            {
+                buf[i] = (char)rand.Next(2, 255);
+            }
+            return buf;
         }
 
-        public static string Encrypt(string plainText, string password, int passwordIterations, int keySize)
+        public static string Encrypt(string plainText, string password)
         {
             if (string.IsNullOrEmpty(plainText)) return "";
 
@@ -57,8 +77,8 @@ namespace Messenger.utils
             byte[] saltValueBytes = Encoding.ASCII.GetBytes(salt);
             byte[] plainTextBytes = Encoding.UTF8.GetBytes(plainText);
 
-            PasswordDeriveBytes derivedPassword = new PasswordDeriveBytes(password, saltValueBytes, hashAlgorithm, passwordIterations);
-            byte[] keyBytes = derivedPassword.GetBytes(keySize / 8);
+            PasswordDeriveBytes derivedPassword = new PasswordDeriveBytes(password, saltValueBytes, hashAlgorithm, PASSWORD_ITER);
+            byte[] keyBytes = derivedPassword.GetBytes(KEY_SIZE / 8);
             RijndaelManaged symmetricKey = new RijndaelManaged();
             symmetricKey.Mode = CipherMode.CBC;
 
@@ -84,7 +104,7 @@ namespace Messenger.utils
             }
         }
 
-        public static string Decrypt(string cipherText, string password, int passwordIterations, int keySize)
+        public static string Decrypt(string cipherText, string password)
         {
             if (string.IsNullOrEmpty(cipherText)) return "";
 
@@ -92,8 +112,8 @@ namespace Messenger.utils
             byte[] saltValueBytes = Encoding.ASCII.GetBytes(salt);
             byte[] cipherTextBytes = Convert.FromBase64String(cipherText);
 
-            PasswordDeriveBytes derivedPassword = new PasswordDeriveBytes(password, saltValueBytes, hashAlgorithm, passwordIterations);
-            byte[] keyBytes = derivedPassword.GetBytes(keySize / 8);
+            PasswordDeriveBytes derivedPassword = new PasswordDeriveBytes(password, saltValueBytes, hashAlgorithm, PASSWORD_ITER);
+            byte[] keyBytes = derivedPassword.GetBytes(KEY_SIZE / 8);
             RijndaelManaged symmetricKey = new RijndaelManaged();
             symmetricKey.Mode = CipherMode.CBC;
 
@@ -119,7 +139,16 @@ namespace Messenger.utils
             }
         }
 
-
+        public static char[] createSesionKey(PublicKey key, char[] powKey)
+        {
+            char[] bas = key.body.ToCharArray();
+            char[] res = new char[countChars];
+            for (int i = 0; i < powKey.Length; i++)
+            {
+                res[i] = CriptoUtils.powMod(bas[i], (int)powKey[i], key.mod);
+            }
+            return res;
+        }
 
         private static void closeStream(Stream stream)
         {
